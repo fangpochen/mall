@@ -157,11 +157,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, ShoppingCart, ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import type { ProductInfo } from '@/api/product'
+import type { BannerInfo, CategoryInfo } from '@/api/home'
+import { getBannerList, getCategoryList, getRecommendProducts } from '@/api/home'
 
 const router = useRouter()
 const searchKeyword = ref('')
@@ -175,119 +178,87 @@ const userInfo = ref({
 const cartCount = ref(0)
 
 // 轮播图数据
-const banners = ref([
+const carouselList = ref<BannerInfo[]>([
   {
     id: 1,
-    title: '宠物用品新品特惠',
-    description: '全场新品八折起，多买多省',
-    imageUrl: '/images/banners/banner1.jpg',
-    link: '/category/new'
+    imgUrl: '/images/banner/banner1.jpg',
+    link: '/product/1',
+    sort: 1
   },
   {
     id: 2,
-    title: '精选猫粮专场',
-    description: '健康优质猫粮，给爱宠最好的选择',
-    imageUrl: '/images/banners/banner2.jpg',
-    link: '/category/cat-food'
+    imgUrl: '/images/banner/banner2.jpg',
+    link: '/product/2',
+    sort: 2
   },
   {
     id: 3,
-    title: '宠物医疗服务',
-    description: '专业兽医在线咨询，为爱宠健康保驾护航',
-    imageUrl: '/images/banners/banner3.jpg',
-    link: '/service'
+    imgUrl: '/images/banner/banner3.jpg',
+    link: '/product/3',
+    sort: 3
   }
 ])
 
 // 分类数据
-const categories = ref([
-  { id: 1, name: '猫粮', color: '#f56c6c' },
-  { id: 2, name: '狗粮', color: '#409eff' },
-  { id: 3, name: '玩具', color: '#67c23a' },
-  { id: 4, name: '护理', color: '#e6a23c' },
-  { id: 5, name: '医疗', color: '#909399' },
-  { id: 6, name: '清洁', color: '#9c27b0' }
+const categoryList = ref<CategoryInfo[]>([
+  { id: 1, name: '猫粮', iconClass: 'icon-cat-food', sort: 1 },
+  { id: 2, name: '狗粮', iconClass: 'icon-dog-food', sort: 2 },
+  { id: 3, name: '玩具', iconClass: 'icon-toy', sort: 3 },
+  { id: 4, name: '护理', iconClass: 'icon-care', sort: 4 },
+  { id: 5, name: '医疗', iconClass: 'icon-medical', sort: 5 },
+  { id: 6, name: '清洁', iconClass: 'icon-clean', sort: 6 }
 ])
 
 // 推荐商品数据
-const recommendProducts = ref([
-  {
-    id: 1,
-    name: '进口猫粮10kg',
-    description: '天然无谷物配方，适合所有年龄段猫咪',
-    price: 199.00,
-    sales: 1234,
-    isNew: true,
-    imageUrl: '/images/products/cat-food1.jpg'
-  },
-  {
-    id: 2,
-    name: '狗狗洗澡露',
-    description: '温和配方，不刺激皮肤，香味持久',
-    price: 58.00,
-    sales: 965,
-    isNew: true,
-    imageUrl: '/images/products/dog-shampoo.jpg'
-  },
-  {
-    id: 3,
-    name: '猫咪爬架',
-    description: '多层设计，稳固耐用，满足猫咪攀爬需求',
-    price: 299.00,
-    sales: 752,
-    isNew: false,
-    imageUrl: '/images/products/cat-tree.jpg'
-  },
-  {
-    id: 4,
-    name: '宠物智能喂食器',
-    description: '智能定时定量，手机APP远程控制',
-    price: 399.00,
-    sales: 521,
-    isNew: false,
-    imageUrl: '/images/products/pet-feeder.jpg'
-  }
-])
+const recommendList = ref<ProductInfo[]>([])
+const loading = ref(false)
 
-// 热卖商品数据
-const hotProducts = ref([
-  {
-    id: 5,
-    name: '猫咪逗猫棒',
-    description: '互动玩具，增进感情，锻炼猫咪敏捷度',
-    price: 15.90,
-    sales: 2530,
-    isHot: true,
-    imageUrl: '/images/products/cat-toy.jpg'
-  },
-  {
-    id: 6,
-    name: '狗狗磨牙棒',
-    description: '耐咬耐磨，有效清洁牙齿，预防牙结石',
-    price: 29.90,
-    sales: 1892,
-    isHot: true,
-    imageUrl: '/images/products/dog-bone.jpg'
-  },
-  {
-    id: 7,
-    name: '宠物指甲剪',
-    description: '安全设计，不伤爪，轻松修剪',
-    price: 38.00,
-    sales: 1285,
-    isHot: true,
-    imageUrl: '/images/products/nail-clipper.jpg'
-  },
-  {
-    id: 8,
-    name: '猫砂盆',
-    description: '全封闭设计，防臭防漏，好清理',
-    price: 89.00,
-    sales: 1654,
-    isHot: false,
-    imageUrl: '/images/products/litter-box.jpg'
+// 获取轮播图数据
+const getBanners = async () => {
+  try {
+    const res = await getBannerList()
+    carouselList.value = res.data
+  } catch (error) {
+    console.error('获取轮播图失败:', error)
   }
-])
+}
+
+// 获取分类数据
+const getCategories = async () => {
+  try {
+    const res = await getCategoryList()
+    categoryList.value = res.data
+  } catch (error) {
+    console.error('获取分类失败:', error)
+  }
+}
+
+// 获取推荐商品列表
+const getRecommendList = async () => {
+  try {
+    loading.value = true
+    const res = await getRecommendProducts()
+    recommendList.value = res.data
+  } catch (error) {
+    console.error('获取推荐商品失败:', error)
+    ElMessage.error('获取推荐商品失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 初始化数据
+const initData = async () => {
+  await Promise.all([
+    getBanners(),
+    getCategories(),
+    getRecommendList()
+  ])
+}
+
+onMounted(() => {
+  initData()
+})
 
 // 事件处理
 const handleSearch = () => {
@@ -366,13 +337,6 @@ const handleLogout = () => {
   ElMessage.success('退出登录成功')
   router.push('/')
 }
-
-// 页面加载时检查登录状态
-onMounted(() => {
-  // TODO: 从后端获取登录状态和用户信息
-  // checkLoginStatus()
-  // getCartCount()
-})
 </script>
 
 <style scoped>
