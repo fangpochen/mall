@@ -1,0 +1,231 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 商城项目毕设规范
+
+## 项目架构规范
+- 采用微服务架构，模块化设计
+- 核心模块划分：
+  - mall-admin：后台管理系统
+  - mall-portal：前台商城系统
+  - mall-search：商品搜索系统
+  - mall-security：安全认证系统
+  - mall-common：公共模块
+  - mall-mbg：数据库访问层
+- 技术栈要求：
+  - 后端：Spring Boot 2.x + MyBatis + MySQL
+  - 缓存：Redis
+  - 消息队列：RabbitMQ
+  - 搜索引擎：Elasticsearch
+  - 权限认证：Spring Security + JWT
+
+## 项目结构规范
+- 遵循模块化设计，保持各模块职责单一
+- 代码分层：Controller -> Service -> Mapper
+- 统一使用 RESTful API 设计规范
+- 遵循阿里巴巴 Java 开发手册规范
+
+## 命名规范
+- 类名：使用大驼峰命名法，如 UserController
+- 方法名：使用小驼峰命名法，如 getUserById
+- 变量名：使用小驼峰命名法，如 userId
+- 常量名：全大写，单词间用下划线分隔，如 MAX_COUNT
+- 包名：全小写，如 com.mall.user
+- 数据库表名：小写，单词间用下划线分隔，如 user_info
+
+## 代码规范
+- 必须添加适当的注释，包括类注释、方法注释和关键代码注释
+- 代码缩进使用 4 个空格
+- 每行代码不超过 120 个字符
+- 方法长度不超过 50 行
+- 类文件长度不超过 500 行
+
+## 接口规范
+- 统一响应格式：
+  ```json
+  {
+    "code": 200,
+    "message": "success",
+    "data": {}
+  }
+  ```
+- HTTP 状态码使用规范：
+  - 200：成功
+  - 400：请求参数错误
+  - 401：未授权
+  - 403：禁止访问
+  - 404：资源不存在
+  - 500：服务器内部错误
+
+## 数据库设计规范
+- 表设计原则：
+  - 商品相关表：product_info, product_category, product_sku
+  - 订单相关表：order_info, order_detail, order_status
+  - 用户相关表：user_info, user_address, user_cart
+  - 支付相关表：payment_info, refund_info
+  - 系统相关表：admin_user, role, permission
+- 字段规范：
+  - 主键统一使用 bigint 类型
+  - 金额字段使用 decimal(10,2)
+  - 时间字段使用 datetime
+  - 状态字段使用 tinyint
+  - 所有表必须包含：id, create_time, update_time, is_deleted
+
+## 接口开发规范
+- RESTful API 设计：
+  - GET /api/v1/products - 获取商品列表
+  - GET /api/v1/products/{id} - 获取商品详情
+  - POST /api/v1/orders - 创建订单
+  - PUT /api/v1/orders/{id} - 更新订单状态
+  - DELETE /api/v1/cart/{id} - 删除购物车商品
+- 接口文档：
+  - 使用 Swagger 注解
+  - 必须包含：接口描述、参数说明、返回值说明、错误码说明
+  - 示例：
+    ```java
+    @ApiOperation("获取商品详情")
+    @GetMapping("/products/{id}")
+    public Result<ProductVO> getProductDetail(@PathVariable Long id) {
+        // 实现代码
+    }
+    ```
+
+## 业务功能规范
+- 用户模块：
+  - 注册、登录、找回密码
+  - 个人信息管理
+  - 收货地址管理
+  - 购物车功能
+- 商品模块：
+  - 商品分类管理
+  - 商品上下架
+  - 商品搜索
+  - 商品详情展示
+- 订单模块：
+  - 购物车结算
+  - 订单创建
+  - 订单支付
+  - 订单查询
+- 后台管理：
+  - 商品管理
+  - 订单管理
+  - 用户管理
+  - 系统管理
+
+## 代码质量规范
+- 代码风格：
+  - 遵循阿里巴巴 Java 开发手册
+  - 使用统一的代码格式化工具
+  - 类注释模板：
+    ```java
+    /**
+     * 类描述
+     * @author 作者名
+     * @date 创建时间
+     */
+    ```
+  - 方法注释模板：
+    ```java
+    /**
+     * 方法描述
+     * @param 参数名 参数说明
+     * @return 返回值说明
+     * @throws 异常说明
+     */
+    ```
+- 异常处理：
+  - 统一使用全局异常处理
+  - 自定义业务异常类
+  - 异常日志记录
+
+## 性能优化规范
+- 缓存使用：
+  - 商品信息缓存
+  - 用户信息缓存
+  - 购物车缓存
+  - 使用 Redis 缓存热点数据
+- 数据库优化：
+  - 合理使用索引
+  - 避免大事务
+  - 分页查询优化
+- 接口优化：
+  - 接口限流
+  - 数据压缩
+  - 异步处理
+
+## 安全规范
+- 用户安全：
+  - 密码加密存储
+  - 敏感信息脱敏
+  - 登录态管理
+- 接口安全：
+  - 接口签名验证
+  - 防SQL注入
+  - XSS防护
+- 数据安全：
+  - 数据备份
+  - 敏感数据加密
+  - 操作日志记录
+
+## 性能规范
+- 合理使用缓存
+- 避免大事务
+- 合理使用索引
+- 分页查询必须使用 limit
+- 避免循环调用数据库
+
+## 文档规范
+- 必须编写 README.md 文件
+- 接口文档使用 Swagger 注解
+- 关键业务逻辑需要编写注释说明
+- 数据库设计需要编写 ER 图
+- 项目部署文档必须完整
+
+## 测试规范
+- 单元测试：
+  - 核心业务逻辑必须编写单元测试
+  - 测试覆盖率要求 80% 以上
+  - 使用 JUnit + Mockito
+- 接口测试：
+  - 使用 Postman 进行接口测试
+  - 编写接口测试文档
+  - 测试用例覆盖正常和异常场景
+
+## 版本控制规范
+- Git 使用规范：
+  - 主分支：master
+  - 开发分支：dev
+  - 功能分支：feature/*
+  - 修复分支：hotfix/*
+- 提交规范：
+  - feat: 新功能
+  - fix: 修复bug
+  - docs: 文档更新
+  - style: 代码格式
+  - refactor: 重构
+  - test: 测试
+  - chore: 构建过程或辅助工具的变动
+
+## 项目进度管理
+- 按照功能模块划分任务
+- 每个任务必须有明确的时间节点
+- 定期进行代码审查
+- 及时解决技术难点
+
+## 答辩准备
+- 项目文档：
+  - 完整的技术文档
+  - 数据库设计文档
+  - 接口文档
+  - 部署文档
+- 演示准备：
+  - 功能演示环境
+  - 测试数据准备
+  - 演示脚本
+- 答辩材料：
+  - 项目亮点说明
+  - 技术难点说明
+  - 解决方案说明
+  - 项目总结 

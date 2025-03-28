@@ -40,10 +40,24 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- 注释掉 Docker 构建插件 -->
+            <!--
             <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
+                <version>0.40.2</version>
+                <configuration>
+                    <images>
+                        <image>
+                            <name>mall/mall-search:${project.version}</name>
+                            <build>
+                                <dockerFileDir>${project.basedir}/src/main/docker</dockerFileDir>
+                            </build>
+                        </image>
+                    </images>
+                </configuration>
             </plugin>
+            -->
         </plugins>
     </build>
 
