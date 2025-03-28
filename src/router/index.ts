@@ -41,31 +41,19 @@ const routes: Array<RouteRecordRaw> = [
         name: 'FeedingPlan',
         component: () => import('@/views/user/pet/feeding-plan.vue')
       },
-      // 以下路由暂时注释掉，等待实现
-      /*
-      {
-        path: '/order',
-        name: 'Order',
-        component: () => import('@/views/order/index.vue')
-      },
-      {
-        path: '/order/:id',
-        name: 'OrderDetail',
-        component: () => import('@/views/order/detail.vue')
-      },
       {
         path: '/community',
         name: 'Community',
         component: () => import('@/views/community/index.vue')
       },
       {
-        path: '/community/post/:id',
-        name: 'CommunityPost',
-        component: () => import('@/views/community/post.vue')
+        path: '/community/article/:id',
+        name: 'Article',
+        component: () => import('@/views/community/article.vue')
       },
       {
         path: '/community/edit',
-        name: 'CommunityEdit',
+        name: 'ArticleEdit',
         component: () => import('@/views/community/edit.vue')
       },
       {
@@ -73,7 +61,6 @@ const routes: Array<RouteRecordRaw> = [
         name: 'Message',
         component: () => import('@/views/message/index.vue')
       }
-      */
     ]
   },
   {
@@ -85,12 +72,25 @@ const routes: Array<RouteRecordRaw> = [
     path: '/register',
     name: 'Register',
     component: () => import('@/views/user/register.vue')
+  },
+  {
+    path: '/user/login',
+    redirect: '/login'
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to, from, next) => {
+  console.log('Route navigation:', { to, from })
+  next()
 })
 
 export default router

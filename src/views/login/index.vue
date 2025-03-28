@@ -21,6 +21,7 @@
               placeholder="密码"
               prefix-icon="Lock" 
               show-password
+              @keyup.enter="handleLogin"
             />
           </el-form-item>
           <el-form-item>
@@ -30,7 +31,7 @@
             </div>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" class="login-button" @click="handleLogin">
+            <el-button type="primary" class="login-button" @click="handleLogin" :loading="userStore.loading">
               登录
             </el-button>
           </el-form-item>
@@ -61,19 +62,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useUserStore } from '@/store/user'
 
 const router = useRouter()
 const loginFormRef = ref()
+const userStore = useUserStore()
 
 // 登录表单
 const loginForm = reactive({
-  username: '',
+  username: localStorage.getItem('username') || '',
   password: '',
-  remember: false
+  remember: !!localStorage.getItem('username')
 })
 
 // 表单验证规则
@@ -88,13 +91,31 @@ const rules = {
   ]
 }
 
+// 初始化
+onMounted(() => {
+  // 如果已经登录，直接跳转到首页
+  if (userStore.isLoggedIn) {
+    router.push('/')
+  }
+})
+
 // 登录处理
 const handleLogin = () => {
-  loginFormRef.value.validate((valid: boolean) => {
+  loginFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
-      // TODO: 实际登录逻辑
-      ElMessage.success('登录成功')
-      router.push('/')
+      const result = await userStore.loginAction(loginForm.username, loginForm.password)
+      
+      if (result) {
+        // 如果"记住我"被勾选，则将用户名保存到localStorage
+        if (loginForm.remember) {
+          localStorage.setItem('username', loginForm.username)
+        } else {
+          localStorage.removeItem('username')
+        }
+        
+        ElMessage.success('登录成功')
+        router.push('/')
+      }
     } else {
       return false
     }

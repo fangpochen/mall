@@ -44,38 +44,59 @@
           <template #header>
             <div class="card-header">
               <span>个人信息</span>
-              <el-button type="primary" @click="handleEditProfile">编辑资料</el-button>
+              <el-button type="primary" @click="handleEdit">编辑资料</el-button>
             </div>
           </template>
           <div class="profile-info">
             <div class="avatar-section">
-              <el-avatar :size="100" :src="userInfo.avatar" />
               <el-upload
                 class="avatar-uploader"
                 action="/api/upload"
                 :show-file-list="false"
                 :on-success="handleAvatarSuccess"
                 :before-upload="beforeAvatarUpload"
+                :disabled="!isEditing"
               >
-                <el-button size="small">更换头像</el-button>
+                <img v-if="profileForm.avatar" :src="profileForm.avatar" class="avatar" />
+                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
               </el-upload>
             </div>
             <div class="info-section">
               <div class="info-item">
                 <span class="label">用户名：</span>
-                <span class="value">{{ userInfo.username }}</span>
+                <span class="value">{{ profileForm.username }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">昵称：</span>
+                <span class="value">{{ profileForm.nickname }}</span>
               </div>
               <div class="info-item">
                 <span class="label">手机号：</span>
-                <span class="value">{{ userInfo.phone }}</span>
+                <span class="value">{{ profileForm.phone }}</span>
               </div>
               <div class="info-item">
                 <span class="label">邮箱：</span>
-                <span class="value">{{ userInfo.email }}</span>
+                <span class="value">{{ profileForm.email }}</span>
               </div>
               <div class="info-item">
-                <span class="label">注册时间：</span>
-                <span class="value">{{ userInfo.registerTime }}</span>
+                <span class="label">性别：</span>
+                <span class="value">{{ profileForm.gender === 1 ? '男' : '女' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">生日：</span>
+                <span class="value">{{ profileForm.birthday }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">城市：</span>
+                <span class="value">{{ profileForm.city }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">职业：</span>
+                <span class="value">{{ profileForm.job }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">个性签名：</span>
+                <span class="value">{{ profileForm.signature }}</span>
               </div>
             </div>
           </div>
@@ -216,14 +237,14 @@
             <div class="security-item">
               <div class="security-info">
                 <h3>手机绑定</h3>
-                <p>已绑定手机：{{ userInfo.phone }}</p>
+                <p>已绑定手机：{{ profileForm.phone }}</p>
               </div>
               <el-button type="primary" @click="handleChangePhone">更换手机</el-button>
             </div>
             <div class="security-item">
               <div class="security-info">
                 <h3>邮箱绑定</h3>
-                <p>已绑定邮箱：{{ userInfo.email }}</p>
+                <p>已绑定邮箱：{{ profileForm.email }}</p>
               </div>
               <el-button type="primary" @click="handleChangeEmail">更换邮箱</el-button>
             </div>
@@ -235,7 +256,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   User,
@@ -243,16 +264,44 @@ import {
   List,
   Star,
   Location,
-  Lock
+  Lock,
+  Plus
 } from '@element-plus/icons-vue'
+import { getUserInfo, updateUserInfo } from '@/utils/api'
 
 // 用户信息
-const userInfo = ref({
-  username: 'test_user',
-  phone: '13800138000',
-  email: 'test@example.com',
-  avatar: 'https://example.com/avatar.jpg',
-  registerTime: '2024-01-01'
+const profileFormRef = ref(null)
+const isEditing = ref(false)
+
+const profileForm = reactive({
+  avatar: '',
+  username: '',
+  nickname: '',
+  phone: '',
+  email: '',
+  gender: 1,
+  birthday: '',
+  city: '',
+  job: '',
+  signature: ''
+})
+
+const profileRules = reactive({
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
+  ],
+  nickname: [
+    { required: true, message: '请输入昵称', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ]
 })
 
 // 宠物信息
@@ -307,17 +356,60 @@ const handleMenuSelect = (index: string) => {
   activeMenu.value = index
 }
 
-// 编辑个人资料
-const handleEditProfile = () => {
-  // TODO: 实现编辑个人资料逻辑
+// 获取用户信息
+const fetchUserInfo = async () => {
+  try {
+    const res = await getUserInfo()
+    if (res.code === 200) {
+      Object.assign(profileForm, res.data)
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    ElMessage.error('获取用户信息失败')
+  }
 }
 
-// 头像上传
+// 编辑资料
+const handleEdit = () => {
+  isEditing.value = true
+}
+
+// 保存资料
+const handleSave = async () => {
+  if (!profileFormRef.value) return
+  
+  try {
+    await profileFormRef.value.validate()
+    const res = await updateUserInfo(profileForm)
+    if (res.code === 200) {
+      ElMessage.success('保存成功')
+      isEditing.value = false
+    } else {
+      ElMessage.error(res.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请稍后重试')
+  }
+}
+
+// 取消编辑
+const handleCancel = () => {
+  isEditing.value = false
+  fetchUserInfo() // 重新获取用户信息，放弃修改
+}
+
+// 头像上传成功
 const handleAvatarSuccess = (response: any) => {
-  userInfo.value.avatar = response.url
-  ElMessage.success('头像上传成功')
+  if (response.code === 200) {
+    profileForm.avatar = response.data
+    ElMessage.success('头像上传成功')
+  } else {
+    ElMessage.error('头像上传失败')
+  }
 }
 
+// 头像上传前校验
 const beforeAvatarUpload = (file: File) => {
   const isJPG = file.type === 'image/jpeg'
   const isLt2M = file.size / 1024 / 1024 < 2
@@ -432,29 +524,8 @@ const handleChangeEmail = () => {
   // TODO: 实现更换邮箱逻辑
 }
 
-// 获取数据
-const fetchData = async () => {
-  try {
-    // TODO: 调用API获取用户数据
-    // const [userRes, petsRes, ordersRes, favoritesRes, addressesRes] = await Promise.all([
-    //   getUserInfo(),
-    //   getPets(),
-    //   getOrders(),
-    //   getFavorites(),
-    //   getAddresses()
-    // ])
-    // userInfo.value = userRes.data
-    // pets.value = petsRes.data
-    // orders.value = ordersRes.data
-    // favorites.value = favoritesRes.data
-    // addresses.value = addressesRes.data
-  } catch (error) {
-    console.error('获取数据失败:', error)
-  }
-}
-
 onMounted(() => {
-  fetchData()
+  fetchUserInfo()
 })
 </script>
 
@@ -641,5 +712,38 @@ onMounted(() => {
 .security-info p {
   margin: 0;
   color: #606266;
+}
+
+.avatar-uploader {
+  text-align: center;
+}
+
+.avatar-uploader .avatar {
+  width: 100px;
+  height: 100px;
+  display: block;
+  border-radius: 50%;
+}
+
+.avatar-uploader .el-upload {
+  border: 1px dashed #d9d9d9;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--el-transition-duration-fast);
+}
+
+.avatar-uploader .el-upload:hover {
+  border-color: var(--el-color-primary);
+}
+
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 100px;
+  height: 100px;
+  text-align: center;
+  line-height: 100px;
 }
 </style> 

@@ -70,6 +70,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { User, Lock, Message, Phone } from '@element-plus/icons-vue'
+import { register } from '@/utils/api'
 
 const router = useRouter()
 const registerFormRef = ref<FormInstance>()
@@ -135,13 +136,23 @@ const handleRegister = async () => {
     await registerFormRef.value.validate()
     loading.value = true
     
-    // TODO: 调用注册 API
-    // const res = await register(registerForm)
+    // 调用注册 API
+    const res = await register({
+      username: registerForm.username,
+      password: registerForm.password,
+      telephone: registerForm.phone,
+      authCode: '123456' // 后端会忽略验证码
+    })
     
-    ElMessage.success('注册成功')
-    router.push('/user/login')
+    if (res.code === 200) {
+      ElMessage.success('注册成功')
+      router.push('/user/login')
+    } else {
+      ElMessage.error(res.message || '注册失败')
+    }
   } catch (error) {
     console.error('注册失败:', error)
+    ElMessage.error('注册失败，请稍后重试')
   } finally {
     loading.value = false
   }
