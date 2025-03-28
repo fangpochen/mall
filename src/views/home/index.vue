@@ -1,5 +1,50 @@
 <template>
   <div class="home-container">
+    <!-- 顶部导航栏 -->
+    <div class="nav-header">
+      <div class="nav-content">
+        <div class="nav-left">
+          <router-link to="/" class="logo">宠物商城</router-link>
+        </div>
+        <div class="nav-center">
+          <el-menu mode="horizontal" :router="true" class="nav-menu">
+            <el-menu-item index="/">首页</el-menu-item>
+            <el-menu-item index="/products">商品分类</el-menu-item>
+            <el-menu-item index="/community">社区论坛</el-menu-item>
+          </el-menu>
+        </div>
+        <div class="nav-right">
+          <template v-if="!isLoggedIn">
+            <el-button type="text" @click="handleLogin">登录</el-button>
+            <el-button type="primary" @click="handleRegister">注册</el-button>
+          </template>
+          <template v-else>
+            <el-dropdown @command="handleCommand">
+              <span class="user-dropdown">
+                <el-avatar :size="32" :src="userInfo.avatar"></el-avatar>
+                <span class="username">{{ userInfo.nickname }}</span>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="profile">个人资料</el-dropdown-item>
+                  <el-dropdown-item command="pets">宠物档案</el-dropdown-item>
+                  <el-dropdown-item command="orders">我的订单</el-dropdown-item>
+                  <el-dropdown-item command="favorites">我的收藏</el-dropdown-item>
+                  <el-dropdown-item command="messages">我的消息</el-dropdown-item>
+                  <el-dropdown-item command="cart">购物车</el-dropdown-item>
+                  <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-badge :value="cartCount" class="cart-badge" v-if="cartCount > 0">
+              <el-button type="primary" icon="ShoppingCart" circle @click="$router.push('/cart')"></el-button>
+            </el-badge>
+            <el-button v-else type="primary" icon="ShoppingCart" circle @click="$router.push('/cart')"></el-button>
+          </template>
+        </div>
+      </div>
+    </div>
+
     <!-- 搜索框 -->
     <div class="search-section">
       <el-input
@@ -113,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, ShoppingCart, ArrowRight } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -121,27 +166,35 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const searchKeyword = ref('')
 
+// 用户登录状态
+const isLoggedIn = ref(false)
+const userInfo = ref({
+  nickname: '用户名',
+  avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+})
+const cartCount = ref(0)
+
 // 轮播图数据
 const banners = ref([
   {
     id: 1,
     title: '宠物用品新品特惠',
     description: '全场新品八折起，多买多省',
-    imageUrl: 'https://img2.baidu.com/it/u=1576561052,2344850446&fm=253&fmt=auto&app=138&f=JPEG?w=1180&h=500',
+    imageUrl: '/images/banners/banner1.jpg',
     link: '/category/new'
   },
   {
     id: 2,
     title: '精选猫粮专场',
     description: '健康优质猫粮，给爱宠最好的选择',
-    imageUrl: 'https://img1.baidu.com/it/u=2361628334,2482205648&fm=253&fmt=auto&app=138&f=JPEG?w=1000&h=500',
+    imageUrl: '/images/banners/banner2.jpg',
     link: '/category/cat-food'
   },
   {
     id: 3,
     title: '宠物医疗服务',
     description: '专业兽医在线咨询，为爱宠健康保驾护航',
-    imageUrl: 'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fwww.hhsc.site%2Fwp-content%2Fuploads%2F2020%2F06%2F7.jpg&refer=http%3A%2F%2Fwww.hhsc.site&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1713597709&t=c9d6318fdd2b4ba3c7e8a5bf8d66a0a5',
+    imageUrl: '/images/banners/banner3.jpg',
     link: '/service'
   }
 ])
@@ -165,7 +218,7 @@ const recommendProducts = ref([
     price: 199.00,
     sales: 1234,
     isNew: true,
-    imageUrl: 'https://img0.baidu.com/it/u=1820520028,3412001317&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/cat-food1.jpg'
   },
   {
     id: 2,
@@ -174,7 +227,7 @@ const recommendProducts = ref([
     price: 58.00,
     sales: 965,
     isNew: true,
-    imageUrl: 'https://img2.baidu.com/it/u=1652754868,2594800513&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/dog-shampoo.jpg'
   },
   {
     id: 3,
@@ -183,7 +236,7 @@ const recommendProducts = ref([
     price: 299.00,
     sales: 752,
     isNew: false,
-    imageUrl: 'https://img0.baidu.com/it/u=2731124371,2172906173&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/cat-tree.jpg'
   },
   {
     id: 4,
@@ -192,7 +245,7 @@ const recommendProducts = ref([
     price: 399.00,
     sales: 521,
     isNew: false,
-    imageUrl: 'https://img0.baidu.com/it/u=4054409821,1781854245&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/pet-feeder.jpg'
   }
 ])
 
@@ -205,7 +258,7 @@ const hotProducts = ref([
     price: 15.90,
     sales: 2530,
     isHot: true,
-    imageUrl: 'https://img1.baidu.com/it/u=3021883720,1528492552&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/cat-toy.jpg'
   },
   {
     id: 6,
@@ -214,7 +267,7 @@ const hotProducts = ref([
     price: 29.90,
     sales: 1892,
     isHot: true,
-    imageUrl: 'https://img1.baidu.com/it/u=1663577596,2267039039&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/dog-bone.jpg'
   },
   {
     id: 7,
@@ -223,7 +276,7 @@ const hotProducts = ref([
     price: 38.00,
     sales: 1285,
     isHot: true,
-    imageUrl: 'https://img0.baidu.com/it/u=780548818,3728889984&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=500'
+    imageUrl: '/images/products/nail-clipper.jpg'
   },
   {
     id: 8,
@@ -232,7 +285,7 @@ const hotProducts = ref([
     price: 89.00,
     sales: 1654,
     isHot: false,
-    imageUrl: 'https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fimg.alicdn.com%2Fbao%2Fuploaded%2Fi3%2F1664456115%2FO1CN01bLPQqZ1uIOIYhHnkv_%21%210-item_pic.jpg&refer=http%3A%2F%2Fimg.alicdn.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1713597814&t=a48e47ed32d94e05dc9889303dd6dccd'
+    imageUrl: '/images/products/litter-box.jpg'
   }
 ])
 
@@ -270,6 +323,56 @@ const handleViewMore = (type) => {
     query: { type }
   })
 }
+
+// 登录注册处理
+const handleLogin = () => {
+  router.push('/login')
+}
+
+const handleRegister = () => {
+  router.push('/register')
+}
+
+// 下拉菜单处理
+const handleCommand = (command) => {
+  switch (command) {
+    case 'profile':
+      router.push('/user/profile')
+      break
+    case 'pets':
+      router.push('/user/pets')
+      break
+    case 'orders':
+      router.push('/user/orders')
+      break
+    case 'favorites':
+      router.push('/user/favorites')
+      break
+    case 'messages':
+      router.push('/user/messages')
+      break
+    case 'cart':
+      router.push('/cart')
+      break
+    case 'logout':
+      handleLogout()
+      break
+  }
+}
+
+// 退出登录
+const handleLogout = () => {
+  isLoggedIn.value = false
+  ElMessage.success('退出登录成功')
+  router.push('/')
+}
+
+// 页面加载时检查登录状态
+onMounted(() => {
+  // TODO: 从后端获取登录状态和用户信息
+  // checkLoginStatus()
+  // getCartCount()
+})
 </script>
 
 <style scoped>
@@ -277,6 +380,54 @@ const handleViewMore = (type) => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  padding-top: 0;
+}
+
+/* 顶部导航栏样式 */
+.nav-header {
+  background-color: #fff;
+  padding: 10px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-left {
+  flex: 1;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+  color: #303133;
+  text-decoration: none;
+}
+
+.nav-center {
+  flex: 2;
+}
+
+.nav-menu {
+  display: flex;
+  justify-content: center;
+}
+
+.nav-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 15px;
 }
 
 /* 搜索框样式 */
@@ -491,6 +642,32 @@ const handleViewMore = (type) => {
   justify-content: center;
 }
 
+/* 导航栏用户相关样式 */
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.username {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.nav-right .el-button {
+  margin-left: 10px;
+}
+
+.cart-badge {
+  margin-left: 15px;
+}
+
+.cart-badge :deep(.el-badge__content) {
+  background-color: #f56c6c;
+}
+
 /* 响应式布局 */
 @media (max-width: 768px) {
   .search-input {
@@ -517,6 +694,22 @@ const handleViewMore = (type) => {
   
   .banner-content p {
     font-size: 14px;
+  }
+
+  .nav-content {
+    padding: 0 15px;
+  }
+  
+  .nav-center {
+    display: none;
+  }
+  
+  .nav-right {
+    gap: 8px;
+  }
+  
+  .username {
+    display: none;
   }
 }
 </style> 
