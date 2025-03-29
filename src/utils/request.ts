@@ -1,91 +1,142 @@
-import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import axios from 'axios';
 import { ElMessage } from 'element-plus';
 import router from '@/router';
 
+// API基础配置
+const baseConfig = {
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/mall-portal',
+  timeout: 15000,
+  withCredentials: true
+};
+
 // 创建axios实例
-const service = axios.create({
-  baseURL: '/api', // API的基础URL
-  timeout: 15000, // 请求超时时间
-  withCredentials: true // 允许携带cookie
-});
+const http = axios.create(baseConfig);
+
+// 消息显示控制 - 避免同时显示多个相同错误
+let messageLock = false;
+const showMessage = (message, type = 'error', duration = 3000) => {
+  if (messageLock) return;
+  messageLock = true;
+  ElMessage({
+    message,
+    type,
+    duration
+  });
+  setTimeout(() => {
+    messageLock = false;
+  }, 1000);
+};
 
 // 请求拦截器
-service.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // 如果有token，添加到请求头
+http.interceptors.request.use(
+  (config) => {
+    // 从localStorage获取token
     const token = localStorage.getItem('token');
     const tokenHead = localStorage.getItem('tokenHead');
+    
+    // 如果有token，添加到请求头
     if (token && tokenHead && config.headers) {
-      config.headers['Authorization'] = tokenHead + ' ' + token;
+      config.headers['Authorization'] = `${tokenHead} ${token}`;
     }
+    
     return config;
   },
   (error) => {
-    console.log(error);
+    console.error('请求配置错误:', error);
     return Promise.reject(error);
   }
 );
 
 // 响应拦截器
-service.interceptors.response.use(
-  (response: AxiosResponse) => {
-    const res = response.data;
-    // 如果返回的状态码不是200，则判断为错误
-    if (res.code !== 200) {
-      ElMessage({
-        message: res.message || '请求失败',
-        type: 'error',
-        duration: 3 * 1000
-      });
-
-      // 401: 未登录或token过期
-      if (res.code === 401) {
-        // 清除本地token
+http.interceptors.response.use(
+  (response) => {
+    const { data } = response;
+    
+    // 如果不是标准响应格式，直接返回
+    if (data === null || typeof data !== 'object' || data.code === undefined) {
+      return response.data;
+    }
+    
+    // 处理标准响应
+    if (data.code === 200) {
+      return data;
+    } else {
+      // 处理401未授权
+      if (data.code === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('tokenHead');
         localStorage.removeItem('userInfo');
         
-        // 跳转到登录页
-        router.push('/login');
+        router.push({
+          path: '/user/login',
+          query: { redirect: router.currentRoute.value.fullPath }
+        });
       }
-      return Promise.reject(new Error(res.message || '请求失败'));
-    } else {
-      return res;
+      
+      // 显示错误消息
+      showMessage(data.message || '操作失败', 'error');
+      
+      return Promise.reject(new Error(data.message || '操作失败'));
     }
   },
   (error) => {
-    console.log('请求错误: ' + error);
-    let message = error.message;
+    console.error('响应错误:', error);
+    
+    let message = '网络错误';
+    
     if (error.response) {
+      // 服务器返回了错误响应
       switch (error.response.status) {
         case 401:
-          message = '未授权，请登录';
-          // 清除本地token
+          message = '未授权，请重新登录';
           localStorage.removeItem('token');
           localStorage.removeItem('tokenHead');
           localStorage.removeItem('userInfo');
-          router.push('/login');
+          
+          router.push({
+            path: '/user/login',
+            query: { redirect: router.currentRoute.value.fullPath }
+          });
           break;
         case 403:
-          message = '拒绝访问';
+          message = '无访问权限';
           break;
         case 404:
-          message = '请求错误，未找到该资源';
+          message = '请求的资源不存在';
           break;
         case 500:
-          message = '服务器内部错误';
+          message = '服务器错误';
           break;
         default:
-          message = `连接错误${error.response.status}`;
+          message = `请求失败(${error.response.status})`;
       }
+    } else if (error.request) {
+      // 请求已发送但没有收到响应
+      message = '服务器无响应';
     }
-    ElMessage({
-      message: message,
-      type: 'error',
-      duration: 3 * 1000
-    });
+    
+    showMessage(message, 'error');
     return Promise.reject(error);
   }
 );
 
-export default service; 
+// 封装请求方法
+const request = {
+  get(url, params = {}, config = {}) {
+    return http.get(url, { params, ...config });
+  },
+  
+  post(url, data = {}, config = {}) {
+    return http.post(url, data, config);
+  },
+  
+  put(url, data = {}, config = {}) {
+    return http.put(url, data, config);
+  },
+  
+  delete(url, params = {}, config = {}) {
+    return http.delete(url, { params, ...config });
+  }
+};
+
+export default request; 

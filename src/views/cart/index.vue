@@ -107,9 +107,16 @@ import {
   removeCartItem,
   clearCart
 } from '@/utils/api'
+import { useUserStore } from '@/store/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+// 页面状态
+const loading = ref(false)
+const submitting = ref(false)
 const cartItems = ref([])
+const cartPromotions = ref([])
 const selectedItems = ref([])
 
 // 计算总价
@@ -119,100 +126,198 @@ const totalPrice = computed(() => {
   }, 0)
 })
 
+// 计算总数
+const totalCount = computed(() => {
+  if (!selectedItems.value.length) return 0
+  
+  return selectedItems.value.reduce((sum, id) => {
+    const item = cartItems.value.find(item => item.id === id)
+    return sum + (item ? item.quantity : 0)
+  }, 0)
+})
+
+// 是否全选
+const isAllSelected = computed(() => {
+  return cartItems.value.length > 0 && selectedItems.value.length === cartItems.value.length
+})
+
 // 获取购物车列表
 const fetchCartList = async () => {
+  loading.value = true
   try {
     const res = await getCartList()
     if (res.code === 200) {
-      cartItems.value = res.data
+      cartItems.value = res.data || []
+      
+      // 默认全选
+      selectedItems.value = cartItems.value.map(item => item.id)
+      
+      // 获取促销信息
+      fetchCartPromotions()
     }
   } catch (error) {
-    console.error('获取购物车列表失败:', error)
+    console.error('获取购物车列表失败', error)
     ElMessage.error('获取购物车列表失败')
+  } finally {
+    loading.value = false
   }
 }
 
-// 选择商品变化
-const handleSelectionChange = (selection: any[]) => {
-  selectedItems.value = selection
-}
-
-// 修改商品数量
-const handleQuantityChange = async (item: any) => {
+// 获取促销信息
+const fetchCartPromotions = async () => {
+  if (cartItems.value.length === 0) return
+  
   try {
-    const res = await updateCartQuantity({
-      id: item.id,
-      quantity: item.quantity
-    })
+    const cartIds = cartItems.value.map(item => item.id)
+    const res = await cartListPromotion(cartIds)
     if (res.code === 200) {
-      ElMessage.success('更新成功')
-    } else {
-      ElMessage.error(res.message || '更新失败')
+      cartPromotions.value = res.data || []
+      
+      // 更新购物车项的促销信息
+      cartItems.value = cartItems.value.map(item => {
+        const promotionItem = cartPromotions.value.find(p => p.id === item.id)
+        if (promotionItem) {
+          return {
+            ...item,
+            promotionMessage: promotionItem.promotionMessage,
+            reduceAmount: promotionItem.reduceAmount
+          }
+        }
+        return item
+      })
     }
   } catch (error) {
-    console.error('更新数量失败:', error)
-    ElMessage.error('更新数量失败')
+    console.error('获取促销信息失败', error)
   }
 }
 
-// 删除商品
-const handleRemoveItem = async (item: any) => {
+// 更新购物车商品数量
+const handleUpdateQuantity = async (item, quantity) => {
+  if (quantity < 1) {
+    ElMessage.warning('数量不能小于1')
+    return
+  }
+  
+  if (quantity > 99) {
+    ElMessage.warning('数量不能大于99')
+    return
+  }
+  
   try {
-    await ElMessageBox.confirm('确定要删除这个商品吗？', '提示', {
-      type: 'warning'
-    })
-    const res = await removeCartItem(item.id)
+    const res = await updateQuantity(item.id, quantity)
     if (res.code === 200) {
-      ElMessage.success('删除成功')
-      fetchCartList()
-    } else {
-      ElMessage.error(res.message || '删除失败')
+      // 更新本地数据
+      const index = cartItems.value.findIndex(i => i.id === item.id)
+      if (index !== -1) {
+        cartItems.value[index].quantity = quantity
+      }
+      ElMessage.success('更新数量成功')
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除商品失败:', error)
-      ElMessage.error('删除商品失败')
-    }
+    console.error('更新购物车数量失败', error)
+    ElMessage.error('更新购物车数量失败')
   }
+}
+
+// 删除购物车商品
+const handleDeleteItem = async (item) => {
+  ElMessageBox.confirm('确定要删除这件商品吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      const res = await deleteCartItem([item.id])
+      if (res.code === 200) {
+        // 移除本地数据
+        cartItems.value = cartItems.value.filter(i => i.id !== item.id)
+        // 同时从选中项中移除
+        selectedItems.value = selectedItems.value.filter(id => id !== item.id)
+        ElMessage.success('删除成功')
+      }
+    } catch (error) {
+      console.error('删除购物车商品失败', error)
+      ElMessage.error('删除购物车商品失败')
+    }
+  }).catch(() => {})
 }
 
 // 清空购物车
-const handleClearCart = async () => {
-  try {
-    await ElMessageBox.confirm('确定要清空购物车吗？', '提示', {
-      type: 'warning'
-    })
-    const res = await clearCart()
-    if (res.code === 200) {
-      ElMessage.success('清空成功')
-      cartItems.value = []
-      selectedItems.value = []
-    } else {
-      ElMessage.error(res.message || '清空失败')
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('清空购物车失败:', error)
+const handleClearCart = () => {
+  if (cartItems.value.length === 0) {
+    ElMessage.warning('购物车已经是空的了')
+    return
+  }
+  
+  ElMessageBox.confirm('确定要清空购物车吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      const res = await clear()
+      if (res.code === 200) {
+        cartItems.value = []
+        selectedItems.value = []
+        ElMessage.success('购物车已清空')
+      }
+    } catch (error) {
+      console.error('清空购物车失败', error)
       ElMessage.error('清空购物车失败')
     }
+  }).catch(() => {})
+}
+
+// 处理选择所有项
+const handleSelectAll = (value) => {
+  selectedItems.value = value ? cartItems.value.map(item => item.id) : []
+}
+
+// 处理选择单个项
+const handleSelectItem = (item, selected) => {
+  if (selected) {
+    selectedItems.value.push(item.id)
+  } else {
+    selectedItems.value = selectedItems.value.filter(id => id !== item.id)
   }
 }
 
-// 结算
+// 是否选中
+const isItemSelected = (item) => {
+  return selectedItems.value.includes(item.id)
+}
+
+// 去结算
 const handleCheckout = () => {
-  const items = selectedItems.value.map(item => ({
-    productId: item.productId,
-    quantity: item.quantity
-  }))
+  if (selectedItems.value.length === 0) {
+    ElMessage.warning('请至少选择一件商品')
+    return
+  }
+  
   router.push({
     path: '/order/confirm',
-    query: {
-      items: JSON.stringify(items)
-    }
+    query: { cartIds: selectedItems.value.join(',') }
   })
 }
 
+// 继续购物
+const handleContinueShopping = () => {
+  router.push('/')
+}
+
+// 页面初始化
 onMounted(() => {
+  // 检查登录状态
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push({
+      path: '/login',
+      query: { redirect: '/cart' }
+    })
+    return
+  }
+  
+  // 获取购物车列表
   fetchCartList()
 })
 </script>
