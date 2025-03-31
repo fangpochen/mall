@@ -82,7 +82,6 @@ const routes: RouteRecordRaw[] = [
       */
     ]
   },
-  /* 
   {
     path: '/login',
     name: 'login',
@@ -95,6 +94,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/RegisterPage.vue'),
     meta: { title: '注册', requiresAuth: false }
   },
+  /* 404页面文件不存在，暂时注释掉此路由
   {
     path: '/:pathMatch(.*)*',
     name: 'notFound',
@@ -102,10 +102,11 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '404', requiresAuth: false }
   }
   */
+  
   // 临时重定向
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/product/1'
+    redirect: '/home'
   }
 ]
 

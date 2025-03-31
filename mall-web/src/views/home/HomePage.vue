@@ -104,6 +104,11 @@
         </div>
       </div>
     </div>
+
+    <!-- 加载中状态 -->
+    <div v-if="loading" class="loading-container">
+      <el-loading :fullscreen="true" text="加载中..." />
+    </div>
   </div>
 </template>
 
@@ -112,8 +117,12 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight, Promotion, ShoppingBag, Box, Star, Goods, Food, Trophy, Briefcase } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import homeApi from '../../api/home'
+import cartApi from '../../api/cart'
+import type { HomeContentResult, Product } from '../../api/index.d'
 
 const router = useRouter()
+const loading = ref(false)
 
 // 轮播图数据
 const banners = ref([
@@ -151,73 +160,9 @@ const categories = ref([
 ])
 
 // 推荐商品
-const recommendedProducts = ref([
-  {
-    id: 101,
-    name: '进口猫粮10kg',
-    price: 299.00,
-    sales: 2543,
-    imageUrl: 'https://picsum.photos/200/200?random=101'
-  },
-  {
-    id: 102,
-    name: '狗狗洗澡露',
-    price: 69.90,
-    sales: 1892,
-    imageUrl: 'https://picsum.photos/200/200?random=102'
-  },
-  {
-    id: 103,
-    name: '猫咪爬架',
-    price: 159.00,
-    sales: 986,
-    imageUrl: 'https://picsum.photos/200/200?random=103'
-  },
-  {
-    id: 104,
-    name: '宠物智能喂食器',
-    price: 299.00,
-    sales: 756,
-    imageUrl: 'https://picsum.photos/200/200?random=104'
-  }
-])
-
+const recommendedProducts = ref<any[]>([])
 // 特价商品
-const specialProducts = ref([
-  {
-    id: 201,
-    name: '猫咪磨爪玩具',
-    price: 39.90,
-    originalPrice: 59.90,
-    sales: 1245,
-    imageUrl: 'https://picsum.photos/200/200?random=201'
-  },
-  {
-    id: 202,
-    name: '狗狗牵引绳',
-    price: 29.90,
-    originalPrice: 49.90,
-    sales: 2367,
-    imageUrl: 'https://picsum.photos/200/200?random=202'
-  },
-  {
-    id: 203,
-    name: '宠物指甲剪',
-    price: 19.90,
-    originalPrice: 29.90,
-    sales: 3421,
-    imageUrl: 'https://picsum.photos/200/200?random=203'
-  },
-  {
-    id: 204,
-    name: '猫厕所',
-    price: 89.90,
-    originalPrice: 129.90,
-    sales: 1879,
-    imageUrl: 'https://picsum.photos/200/200?random=204'
-  }
-])
-
+const specialProducts = ref<any[]>([])
 // 宠物科普文章
 const articles = ref([
   {
@@ -280,15 +225,202 @@ const goToDetail = (productId: number) => {
  * 添加商品到购物车
  * @param productId 商品ID
  */
-const addToCart = (productId: number) => {
-  // 这里应该是一个API调用
-  console.log('添加商品到购物车：', productId)
-  ElMessage.success('已添加到购物车')
+const addToCart = async (productId: number) => {
+  try {
+    const result = await cartApi.addToCart({
+      productId,
+      quantity: 1
+    })
+    
+    if (result.code === 200) {
+      ElMessage.success('已添加到购物车')
+    } else {
+      ElMessage.error(result.message || '添加失败')
+    }
+  } catch (error) {
+    console.error('添加到购物车失败', error)
+    ElMessage.error('添加失败，请稍后重试')
+  }
+}
+
+/**
+ * 转换后端商品数据为前端展示数据
+ * @param products 后端商品数据
+ * @returns 前端展示数据
+ */
+const transformProductData = (products: Product[]) => {
+  return products.map(item => ({
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    originalPrice: item.originalPrice || (item.price * 1.2),
+    sales: item.sale || 0,
+    imageUrl: item.pic || `https://picsum.photos/200/200?random=${item.id}`
+  }))
+}
+
+/**
+ * 获取首页数据
+ */
+const fetchHomeData = async () => {
+  loading.value = true
+  try {
+    // 获取首页内容数据
+    const result = await homeApi.getHomeContent()
+    if (result.code === 200) {
+      const data: HomeContentResult = result.data
+      
+      // 轮播广告
+      if (data.advertiseList && data.advertiseList.length > 0) {
+        banners.value = data.advertiseList.map(item => ({
+          imgUrl: item.pic || 'https://picsum.photos/1200/400?random=1',
+          title: item.name,
+          description: item.note || '精选商品，品质保障',
+          buttonText: '立即抢购',
+          link: item.url || '/products'
+        }))
+      }
+      
+      // 推荐商品（使用人气推荐）
+      if (data.hotProductList && data.hotProductList.length > 0) {
+        recommendedProducts.value = transformProductData(data.hotProductList)
+      } else {
+        // 如果没有数据，需要额外调用推荐商品接口
+        const recommendResult = await homeApi.getRecommendProductList({ pageSize: 4, pageNum: 1 })
+        if (recommendResult.code === 200) {
+          recommendedProducts.value = transformProductData(recommendResult.data)
+        }
+      }
+      
+      // 特价商品（使用新品推荐，因为没有特价商品API）
+      if (data.newProductList && data.newProductList.length > 0) {
+        specialProducts.value = transformProductData(data.newProductList)
+      } else {
+        // 额外获取新品推荐
+        const newProductResult = await homeApi.getNewProductList({ pageSize: 4, pageNum: 1 })
+        if (newProductResult.code === 200) {
+          specialProducts.value = transformProductData(newProductResult.data)
+        }
+      }
+    } else {
+      // 如果获取首页内容失败，则分别调用API获取数据
+      await fetchRecommendProducts()
+      await fetchSpecialProducts()
+    }
+  } catch (error) {
+    console.error('获取首页数据失败', error)
+    ElMessage.error('获取数据失败，请稍后重试')
+    // 出错时使用默认的静态数据
+    await fetchDefaultData()
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 获取推荐商品数据
+ */
+const fetchRecommendProducts = async () => {
+  try {
+    const result = await homeApi.getHotProductList({ pageSize: 4, pageNum: 1 })
+    if (result.code === 200) {
+      recommendedProducts.value = transformProductData(result.data)
+    }
+  } catch (error) {
+    console.error('获取推荐商品失败', error)
+  }
+}
+
+/**
+ * 获取特价商品数据
+ */
+const fetchSpecialProducts = async () => {
+  try {
+    const result = await homeApi.getNewProductList({ pageSize: 4, pageNum: 1 })
+    if (result.code === 200) {
+      specialProducts.value = transformProductData(result.data)
+    }
+  } catch (error) {
+    console.error('获取特价商品失败', error)
+  }
+}
+
+/**
+ * 加载默认数据（当API调用失败时使用）
+ */
+const fetchDefaultData = async () => {
+  // 推荐商品默认数据
+  recommendedProducts.value = [
+    {
+      id: 101,
+      name: '进口猫粮10kg',
+      price: 299.00,
+      sales: 2543,
+      imageUrl: 'https://picsum.photos/200/200?random=101'
+    },
+    {
+      id: 102,
+      name: '狗狗洗澡露',
+      price: 69.90,
+      sales: 1892,
+      imageUrl: 'https://picsum.photos/200/200?random=102'
+    },
+    {
+      id: 103,
+      name: '猫咪爬架',
+      price: 159.00,
+      sales: 986,
+      imageUrl: 'https://picsum.photos/200/200?random=103'
+    },
+    {
+      id: 104,
+      name: '宠物智能喂食器',
+      price: 299.00,
+      sales: 756,
+      imageUrl: 'https://picsum.photos/200/200?random=104'
+    }
+  ]
+  
+  // 特价商品默认数据
+  specialProducts.value = [
+    {
+      id: 201,
+      name: '猫咪磨爪玩具',
+      price: 39.90,
+      originalPrice: 59.90,
+      sales: 1245,
+      imageUrl: 'https://picsum.photos/200/200?random=201'
+    },
+    {
+      id: 202,
+      name: '狗狗牵引绳',
+      price: 29.90,
+      originalPrice: 49.90,
+      sales: 2367,
+      imageUrl: 'https://picsum.photos/200/200?random=202'
+    },
+    {
+      id: 203,
+      name: '宠物指甲剪',
+      price: 19.90,
+      originalPrice: 29.90,
+      sales: 3421,
+      imageUrl: 'https://picsum.photos/200/200?random=203'
+    },
+    {
+      id: 204,
+      name: '猫厕所',
+      price: 89.90,
+      originalPrice: 129.90,
+      sales: 1879,
+      imageUrl: 'https://picsum.photos/200/200?random=204'
+    }
+  ]
 }
 
 onMounted(() => {
-  // 页面加载完成后的逻辑
-  console.log('首页加载完成')
+  // 页面加载完成后获取数据
+  fetchHomeData()
 })
 </script>
 
@@ -590,6 +722,19 @@ onMounted(() => {
       }
     }
   }
+}
+
+.loading-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 9999;
 }
 
 @media (max-width: 768px) {

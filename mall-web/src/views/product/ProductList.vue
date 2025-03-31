@@ -113,19 +113,21 @@
             @click="goToDetail(product.id)"
           >
             <div class="product-image">
-              <img :src="product.imageUrl" :alt="product.name" />
-              <div v-if="product.discount" class="product-tag discount">{{ product.discount }}折</div>
-              <div v-if="product.isNew" class="product-tag new">新品</div>
+              <img :src="product.pic || `https://picsum.photos/300/300?random=${product.id}`" :alt="product.name" />
+              <div v-if="product.promotionType > 0" class="product-tag discount">促销</div>
+              <div v-if="product.newStatus === 1" class="product-tag new">新品</div>
             </div>
             <div class="product-info">
               <h3 class="product-name">{{ product.name }}</h3>
               <div class="product-price-row">
                 <div class="product-price">¥{{ product.price.toFixed(2) }}</div>
-                <div v-if="product.originalPrice" class="product-original-price">¥{{ product.originalPrice.toFixed(2) }}</div>
+                <div v-if="product.promotionPrice && product.promotionPrice < product.price" class="product-original-price">
+                  ¥{{ product.originalPrice ? product.originalPrice.toFixed(2) : product.price.toFixed(2) }}
+                </div>
               </div>
               <div class="product-rating">
-                <el-rate v-model="product.rating" disabled text-color="#ff9900" />
-                <span class="sales-count">已售{{ product.sales }}+</span>
+                <el-rate :value="product.rating || 5" disabled text-color="#ff9900" />
+                <span class="sales-count">已售{{ product.sale || 0 }}+</span>
               </div>
               <div class="product-actions">
                 <el-button type="primary" size="small" @click.stop="goToDetail(product.id)">查看详情</el-button>
@@ -135,9 +137,14 @@
           </div>
         </div>
         
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-container">
+          <el-skeleton :rows="5" animated />
+        </div>
+        
         <!-- 空状态 -->
         <el-empty 
-          v-else 
+          v-if="!loading && productList.length === 0" 
           description="暂无相关商品" 
           :image-size="200"
         />
@@ -147,7 +154,7 @@
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
-            :page-sizes="[12, 24, 36, 48]"
+            :page-sizes="[10, 20, 30, 40]"
             layout="total, sizes, prev, pager, next, jumper"
             :total="totalCount"
             @size-change="handleSizeChange"
@@ -160,16 +167,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import productApi from '../../api/product'
+import cartApi from '../../api/cart'
 
 const router = useRouter()
 const route = useRoute()
 
+// 加载状态
+const loading = ref(false)
+
 // 分页相关
 const currentPage = ref(1)
-const pageSize = ref(12)
+const pageSize = ref(10)
 const totalCount = ref(0)
 
 // 商品列表
@@ -208,9 +220,56 @@ const brands = ref([
 ])
 
 /**
+ * 获取商品分类
+ */
+const fetchCategories = async () => {
+  try {
+    const result = await productApi.getCategoryTreeList()
+    if (result.code === 200 && result.data) {
+      // 将树形结构的分类转换为一级列表供筛选使用
+      const flattenCategories = []
+      const traverse = (categories: any[], parentName = '') => {
+        categories.forEach(cat => {
+          flattenCategories.push({
+            id: cat.id,
+            name: parentName ? `${parentName} - ${cat.name}` : cat.name
+          })
+          if (cat.children && cat.children.length > 0) {
+            traverse(cat.children, cat.name)
+          }
+        })
+      }
+      traverse(result.data)
+      categories.value = flattenCategories
+    }
+  } catch (error) {
+    console.error('获取商品分类失败:', error)
+  }
+}
+
+/**
+ * 获取品牌列表
+ */
+const fetchBrands = async () => {
+  try {
+    const result = await productApi.getBrandList({
+      pageSize: 50,  // 获取足够多的品牌
+      pageNum: 1
+    })
+    if (result.code === 200 && result.data) {
+      brands.value = result.data.map((brand: any) => ({
+        id: brand.id,
+        name: brand.name
+      }))
+    }
+  } catch (error) {
+    console.error('获取品牌列表失败:', error)
+    // 如果API不存在，使用默认品牌列表
+  }
+}
+
+/**
  * 处理筛选
- * @example
- * handleFilter()
  */
 const handleFilter = () => {
   currentPage.value = 1
@@ -219,8 +278,6 @@ const handleFilter = () => {
 
 /**
  * 重置筛选
- * @example
- * resetFilter()
  */
 const resetFilter = () => {
   filterParams.category = ''
@@ -233,8 +290,6 @@ const resetFilter = () => {
 
 /**
  * 处理排序
- * @example
- * handleSort('price_asc')
  */
 const handleSort = () => {
   fetchProductList()
@@ -243,8 +298,6 @@ const handleSort = () => {
 /**
  * 处理页码变化
  * @param page 页码
- * @example
- * handleCurrentChange(2)
  */
 const handleCurrentChange = (page: number) => {
   currentPage.value = page
@@ -255,8 +308,6 @@ const handleCurrentChange = (page: number) => {
 /**
  * 处理每页数量变化
  * @param size 每页数量
- * @example
- * handleSizeChange(24)
  */
 const handleSizeChange = (size: number) => {
   pageSize.value = size
@@ -267,87 +318,88 @@ const handleSizeChange = (size: number) => {
 /**
  * 跳转到商品详情页
  * @param productId 商品ID
- * @example
- * goToDetail('123')
  */
-const goToDetail = (productId: string) => {
+const goToDetail = (productId: string | number) => {
   router.push(`/product/${productId}`)
 }
 
 /**
  * 添加商品到购物车
  * @param productId 商品ID
- * @example
- * addToCart('123')
  */
-const addToCart = (productId: string) => {
-  // 这里应该是API调用添加购物车
-  ElMessage.success('已添加到购物车')
+const addToCart = async (productId: string | number) => {
+  try {
+    const result = await cartApi.addToCart({
+      productId,
+      quantity: 1
+    })
+    
+    if (result.code === 200) {
+      ElMessage.success('已添加到购物车')
+    } else {
+      ElMessage.error(result.message || '添加失败')
+    }
+  } catch (error) {
+    console.error('添加到购物车失败:', error)
+    ElMessage.error('添加失败，请稍后重试')
+  }
 }
 
 /**
  * 获取商品列表
- * @example
- * fetchProductList()
  */
-const fetchProductList = () => {
-  // 构建请求参数
-  const params = {
-    page: currentPage.value,
-    size: pageSize.value,
-    sort: sortOption.value,
-    category: filterParams.category,
-    petType: filterParams.petType.join(','),
-    minPrice: filterParams.priceRange[0],
-    maxPrice: filterParams.priceRange[1],
-    brand: filterParams.brand,
-    keyword: route.query.keyword as string
-  }
+const fetchProductList = async () => {
+  loading.value = true
   
-  console.log('请求参数:', params)
-  
-  // 模拟API调用获取商品列表
-  setTimeout(() => {
-    // 模拟数据
-    const mockProducts = []
-    const basePrice = Math.floor(Math.random() * 100) + 50
+  try {
+    // 构建请求参数
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value,
+      sort: sortOption.value,
+      category: filterParams.category,
+      petType: filterParams.petType.join(','),
+      minPrice: filterParams.priceRange[0],
+      maxPrice: filterParams.priceRange[1],
+      brand: filterParams.brand,
+      keyword: route.query.keyword as string
+    }
     
-    for (let i = 1; i <= 48; i++) {
-      const hasDiscount = Math.random() > 0.7
-      const price = basePrice + Math.floor(Math.random() * 150)
-      const originalPrice = hasDiscount ? price * 1.2 : null
-      const discount = hasDiscount ? '8' : null
+    // 调用搜索API
+    const result = await productApi.searchProducts(params)
+    
+    if (result.code === 200) {
+      // 设置商品列表和总数
+      productList.value = result.data.list || []
+      totalCount.value = result.data.total || 0
       
-      mockProducts.push({
-        id: `product_${i}`,
-        name: `宠物商品 ${i}`,
-        price: price,
-        originalPrice: originalPrice,
-        imageUrl: `https://picsum.photos/300/300?random=${i}`,
-        rating: (3 + Math.random() * 2).toFixed(1),
-        sales: Math.floor(Math.random() * 1000),
-        isNew: Math.random() > 0.8,
-        discount: discount
+      // 处理商品数据，添加额外展示所需的属性
+      productList.value.forEach((product: any) => {
+        // 为商品添加评分（后端可能没有）
+        if (!product.rating) {
+          product.rating = 4 + Math.random()
+        }
+        
+        // 如果没有商品图片，使用占位图
+        if (!product.pic) {
+          product.pic = `https://picsum.photos/300/300?random=${product.id}`
+        }
       })
+    } else {
+      ElMessage.error(result.message || '获取商品列表失败')
+      productList.value = []
+      totalCount.value = 0
     }
+  } catch (error) {
+    console.error('获取商品列表失败:', error)
+    ElMessage.error('获取商品列表失败，请稍后重试')
     
-    // 应用排序
-    if (sortOption.value === 'price_asc') {
-      mockProducts.sort((a, b) => a.price - b.price)
-    } else if (sortOption.value === 'price_desc') {
-      mockProducts.sort((a, b) => b.price - a.price)
-    } else if (sortOption.value === 'sales') {
-      mockProducts.sort((a, b) => b.sales - a.sales)
-    } else if (sortOption.value === 'rating') {
-      mockProducts.sort((a, b) => b.rating - a.rating)
-    }
-    
-    // 分页
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-    productList.value = mockProducts.slice(start, end)
-    totalCount.value = mockProducts.length
-  }, 500)
+    // 出错时使用默认空数据
+    productList.value = []
+    totalCount.value = 0
+  } finally {
+    loading.value = false
+  }
 }
 
 // 监听路由参数变化
@@ -358,9 +410,7 @@ watch(() => route.query, (newQuery) => {
   }
   
   // 如果URL参数中有keyword，更新关键词
-  if (newQuery.keyword) {
-    // 这里可以添加关键词搜索逻辑
-  }
+  // 直接使用关键词搜索
   
   fetchProductList()
 }, { immediate: true })
@@ -371,6 +421,11 @@ onMounted(() => {
     filterParams.category = route.query.category as string
   }
   
+  // 获取分类和品牌数据
+  fetchCategories()
+  fetchBrands()
+  
+  // 获取商品列表
   fetchProductList()
 })
 </script>
@@ -573,6 +628,13 @@ onMounted(() => {
         }
       }
     }
+  }
+  
+  .loading-container {
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    margin-bottom: 30px;
   }
   
   .pagination-container {
