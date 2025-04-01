@@ -7,9 +7,9 @@
           <router-link to="/">宠物商城</router-link>
         </div>
         <div class="nav">
-          <router-link to="/home">首页</router-link>
-          <router-link to="/products">商品列表</router-link>
-          <router-link to="/community">社区论坛</router-link>
+          <router-link to="/home" class="nav-link" :class="{ active: $route.path === '/home' }">首页</router-link>
+          <router-link to="/products" class="nav-link" :class="{ active: $route.path === '/products' }">商品列表</router-link>
+          <router-link to="/community" class="nav-link" :class="{ active: $route.path === '/community' }">社区论坛</router-link>
         </div>
         <div class="search-box">
           <el-input
@@ -54,6 +54,13 @@
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
+          </div>
+          <div class="notification-icon">
+            <router-link to="/user/messages">
+              <el-badge :value="9" class="notification-badge">
+                <el-icon><ChatDotRound /></el-icon>
+              </el-badge>
+            </router-link>
           </div>
           <div class="cart-icon">
             <router-link to="/cart">
@@ -187,13 +194,135 @@ onMounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .header {
-  background-color: #7e57c2;
+  background: linear-gradient(135deg, #7952b3, #6840a0);
   color: white;
   padding: 1rem;
   text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  
+  a {
+    color: white;
+    text-decoration: none;
+  }
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+  
+  .nav-link {
+    color: white;
+    text-decoration: none;
+    padding: 8px 16px;
+    font-weight: 500;
+    position: relative;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    
+    &.active:after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: #ffffff;
+    }
+  }
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  
+  .login-btn,
+  .register-btn {
+    color: white;
+    text-decoration: none;
+    padding: 5px 15px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+  
+  .login-btn {
+    background-color: transparent;
+    border: 1px solid white;
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+  
+  .register-btn {
+    background-color: #ff4757;
+    
+    &:hover {
+      background-color: #ff5e69;
+    }
+  }
+  
+  .notification-icon,
+  .cart-icon {
+    position: relative;
+    font-size: 1.25rem;
+    cursor: pointer;
+    
+    a {
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      transition: background-color 0.3s;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+    }
+  }
+  
+  .notification-badge {
+    :deep(.el-badge__content) {
+      background-color: #ff4757;
+      box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+      transform: scale(1);
+      animation: pulse 2s infinite;
+    }
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  
+  .user-dropdown {
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      color: white;
+    }
+  }
 }
 
 .main-content {

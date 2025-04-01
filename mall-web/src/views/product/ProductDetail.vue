@@ -103,10 +103,13 @@
           <div class="product-actions">
             <el-button type="primary" size="large" @click="buyNow">立即购买</el-button>
             <el-button type="danger" size="large" @click="addToCart">加入购物车</el-button>
-            <el-button plain size="large" @click="toggleFavorite">
-              <el-icon :class="{ 'is-favorite': product.isFavorite }"><Star /></el-icon>
-              收藏
-            </el-button>
+            <product-favorite-button
+              :product-id="Number(productId)"
+              :product-name="product.name"
+              :product-pic="product.images && product.images.length > 0 ? product.images[0] : ''"
+              :product-price="product.price"
+              @favorite-change="onFavoriteChange"
+            />
             <el-button plain size="large" @click="shareProduct">
               <el-icon><Share /></el-icon>
               分享
@@ -166,6 +169,7 @@ import { Star, Share, Check } from '@element-plus/icons-vue'
 import ProductReviews from './components/ProductReviews.vue'
 import ProductSpecifications from './components/ProductSpecifications.vue'
 import ProductRecommendations from './components/ProductRecommendations.vue'
+import ProductFavoriteButton from './components/ProductFavoriteButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -343,18 +347,24 @@ const addToCart = () => {
 }
 
 /**
- * 收藏商品
+ * 切换收藏状态
+ * @deprecated 使用ProductFavoriteButton组件替代
  * @example
  * toggleFavorite()
  */
 const toggleFavorite = () => {
-  product.value.isFavorite = !product.value.isFavorite
-  
-  if (product.value.isFavorite) {
-    ElMessage.success('收藏成功')
-  } else {
-    ElMessage.info('已取消收藏')
-  }
+  // 已被替换为组件，此方法保留以兼容现有代码
+  console.warn('toggleFavorite方法已被废弃，请使用ProductFavoriteButton组件');
+}
+
+/**
+ * 处理收藏状态变化
+ * @param isFavorite 是否已收藏
+ * @example
+ * onFavoriteChange(true)
+ */
+const onFavoriteChange = (isFavorite: boolean) => {
+  product.value.isFavorite = isFavorite;
 }
 
 /**
@@ -797,10 +807,6 @@ watch(() => productId.value, () => {
         
         .el-button {
           min-width: 120px;
-        }
-        
-        .is-favorite {
-          color: #ff9900;
         }
       }
       

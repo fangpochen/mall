@@ -46,7 +46,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/community/CommunityIndex.vue'),
         meta: { title: '社区论坛', requiresAuth: false }
       },
-      /* 
       {
         path: 'user',
         name: 'user',
@@ -76,10 +75,15 @@ const routes: RouteRecordRaw[] = [
             name: 'messages',
             component: () => import('@/views/user/UserMessages.vue'),
             meta: { title: '我的消息', requiresAuth: true }
+          },
+          {
+            path: 'address',
+            name: 'address',
+            component: () => import('@/views/user/UserAddress.vue'),
+            meta: { title: '收货地址', requiresAuth: true }
           }
         ]
       }
-      */
     ]
   },
   {

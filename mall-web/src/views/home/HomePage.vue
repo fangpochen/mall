@@ -118,8 +118,9 @@ import { useRouter } from 'vue-router'
 import { ArrowRight, Promotion, ShoppingBag, Box, Star, Goods, Food, Trophy, Briefcase } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import homeApi from '../../api/home'
+import productApi from '../../api/product'
 import cartApi from '../../api/cart'
-import type { HomeContentResult, Product } from '../../api/index.d'
+import type { HomeContentResult, Product, ProductCategory } from '../../api/index.d'
 
 const router = useRouter()
 const loading = ref(false)
@@ -149,15 +150,8 @@ const banners = ref([
   }
 ])
 
-// 商品分类
-const categories = ref([
-  { id: 1, name: '猫粮', icon: 'Food', bgColor: '#FFD0D0' },
-  { id: 2, name: '狗粮', icon: 'Food', bgColor: '#D0E6FF' },
-  { id: 3, name: '玩具', icon: 'Goods', bgColor: '#D0FFDB' },
-  { id: 4, name: '护理', icon: 'Star', bgColor: '#F1D0FF' },
-  { id: 5, name: '医疗', icon: 'Briefcase', bgColor: '#FFE8D0' },
-  { id: 6, name: '清洁', icon: 'Box', bgColor: '#D0FAFF' }
-])
+// 将静态商品分类改为空数组，后续从API获取
+const categories = ref<any[]>([])
 
 // 推荐商品
 const recommendedProducts = ref<any[]>([])
@@ -302,10 +296,14 @@ const fetchHomeData = async () => {
           specialProducts.value = transformProductData(newProductResult.data)
         }
       }
+
+      // 获取商品分类
+      await fetchCategories()
     } else {
       // 如果获取首页内容失败，则分别调用API获取数据
       await fetchRecommendProducts()
       await fetchSpecialProducts()
+      await fetchCategories() // 获取商品分类
     }
   } catch (error) {
     console.error('获取首页数据失败', error)
@@ -343,6 +341,68 @@ const fetchSpecialProducts = async () => {
   } catch (error) {
     console.error('获取特价商品失败', error)
   }
+}
+
+/**
+ * 获取商品分类数据
+ */
+const fetchCategories = async () => {
+  try {
+    // 调用商品分类API
+    const result = await productApi.getCategoryTreeList()
+    if (result.code === 200 && result.data && result.data.length > 0) {
+      // 获取一级分类作为首页分类展示
+      const firstLevelCategories = result.data.slice(0, 6) // 最多取6个
+      
+      // 为分类定义背景颜色和图标
+      const bgColors = ['#FFD0D0', '#D0E6FF', '#D0FFDB', '#F1D0FF', '#FFE8D0', '#D0FAFF']
+      const icons = ['Food', 'Food', 'Goods', 'Star', 'Briefcase', 'Box']
+      
+      categories.value = firstLevelCategories.map((item: any, index: number) => {
+        // 根据分类名称智能选择图标
+        let icon = icons[index % icons.length]
+        if (item.name.includes('猫') || item.name.includes('狗') || item.name.includes('粮')) {
+          icon = 'Food'
+        } else if (item.name.includes('玩具')) {
+          icon = 'Goods'
+        } else if (item.name.includes('护理')) {
+          icon = 'Star'
+        } else if (item.name.includes('医')) {
+          icon = 'Briefcase'
+        } else if (item.name.includes('清洁')) {
+          icon = 'Box'
+        }
+        
+        return {
+          id: item.id,
+          name: item.name,
+          icon: icon,
+          bgColor: bgColors[index % bgColors.length]
+        }
+      })
+    } else {
+      // 如果API返回错误或没有数据，使用默认分类
+      useDefaultCategories()
+    }
+  } catch (error) {
+    console.error('获取分类数据失败', error)
+    // 出错时使用默认分类
+    useDefaultCategories()
+  }
+}
+
+/**
+ * 使用默认分类数据
+ */
+const useDefaultCategories = () => {
+  categories.value = [
+    { id: 1, name: '猫粮', icon: 'Food', bgColor: '#FFD0D0' },
+    { id: 2, name: '狗粮', icon: 'Food', bgColor: '#D0E6FF' },
+    { id: 3, name: '玩具', icon: 'Goods', bgColor: '#D0FFDB' },
+    { id: 4, name: '护理', icon: 'Star', bgColor: '#F1D0FF' },
+    { id: 5, name: '医疗', icon: 'Briefcase', bgColor: '#FFE8D0' },
+    { id: 6, name: '清洁', icon: 'Box', bgColor: '#D0FAFF' }
+  ]
 }
 
 /**
@@ -416,6 +476,9 @@ const fetchDefaultData = async () => {
       imageUrl: 'https://picsum.photos/200/200?random=204'
     }
   ]
+
+  // 使用默认分类数据
+  useDefaultCategories()
 }
 
 onMounted(() => {
